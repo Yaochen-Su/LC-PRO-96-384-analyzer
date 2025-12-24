@@ -4,7 +4,7 @@ import re
 import io
 
 # 1. 页面配置
-st.set_page_config(page_title="LC PRO 96 智能故障专家", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="LC PRO 智能故障助手", page_icon="🧪", layout="wide")
 
 # --- 2. 增强型映射表 (确保关键词到代码的桥梁坚固) ---
 SYMPTOM_TO_CODE = {
@@ -116,7 +116,7 @@ def perform_diagnosis(df, msg_col, user_input):
 
 # --- 5. 主界面渲染 ---
 def main():
-    st.title("🔬 LC PRO 96 智能维修助理 (V3.0)")
+    st.title("🔬 LC PRO 智能故障助手")
     st.sidebar.header("⚙️ 诊断控制台")
     uploaded_file = st.sidebar.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
     user_query = st.sidebar.text_input("2. 输入症状或警报 ID (如: pressing error)", "pressing error")
@@ -141,3 +141,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
