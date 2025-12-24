@@ -46,7 +46,7 @@ with st.sidebar:
     # 如果是本地文件，请先上传到 GitHub 仓库，然后使用相对路径，如 "logo.png"
     logo_url = "https://www.roche.com/dam/jcr:82708304-4543-4475-816d-3e6f966f363c/roche-logo.png" 
     try:
-        st.image(logo_url, width=150)
+        st.image(logo.png, width=150)
     except:
         st.write("🏢 **[请在代码中配置您的 Logo]**")
     
@@ -217,5 +217,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
