@@ -123,7 +123,7 @@ def main():
     # 侧边栏布局
     with st.sidebar:
         # [Logo] 可以在此处更换 URL
-        st.image("https://www.roche.com/dam/jcr:82708304-4543-4475-816d-3e6f966f363c/roche-logo.png", width=120)
+        st.image("logo.png", width=120)
         st.title("LC PRO 智能故障助手")
         st.write("---")
         uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
@@ -173,4 +173,5 @@ def main():
             st.error("文件格式不兼容，请确保是标准的罗氏日志文件。")
 
 if __name__ == "__main__":
+
 
