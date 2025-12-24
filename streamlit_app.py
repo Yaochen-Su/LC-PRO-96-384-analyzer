@@ -118,23 +118,42 @@ def perform_diagnosis(df, msg_col, user_input):
         st.warning(f"检测到日志相关性，但专家库暂未收录具体解析。")
         st.code(raw_msg)
 
-# --- 4. 主界面渲染 ---
+# --- 4. 界面渲染 ---
 def main():
+    # 侧边栏布局
     with st.sidebar:
+        # [Logo] 可以在此处更换 URL
         st.image("https://www.roche.com/dam/jcr:82708304-4543-4475-816d-3e6f966f363c/roche-logo.png", width=120)
         st.title("LC PRO 智能故障助手")
         st.write("---")
         uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
-        user_query = st.text_input("2. 输入症状或警报 ID", placeholder="如: pressing error")
+        user_query = st.text_input("2. 输入症状/警报ID/代码", placeholder="如: pressing error")
+        st.write("---")
+        st.info("📊 支持 Alert ID 自动关联硬件错误码。")
 
+    # 主界面内容
     if not uploaded_file:
         st.markdown("""
             <div class="welcome-card">
                 <div class="welcome-title">您好！欢迎使用 LC PRO 智能故障助手 👋</div>
-                <p>请上传日志并描述故障现象。支持搜索关键词如：<b>pressing error</b>, <b>unhandled</b>, 或代码 <b>0x0189</b>。</p>
+                <p style="color: #666; font-size: 16px; margin-top: 10px;">
+                    本工具集成了 <b>回溯分析、因果推导、参数提取</b> 等功能，专门用于快速定位 Roche LC PRO 仪器的硬件故障。
+                </p>
+                <hr>
+                <p><b>使用三部曲：</b></p>
+                <ol>
+                    <li>在左侧上传 <b>system-logs.csv</b> 文件。</li>
+                    <li>在搜索框输入遇到的问题（如：<b>pressing error</b>）。</li>
+                    <li>查看系统生成的 <b>深度诊断报告</b>。</li>
+                </ol>
             </div>
             """, unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("解析深度", "三级根因", "电气/机械/耗材")
+        c2.metric("响应速度", "< 1秒", "即时诊断")
+        c3.metric("支持代码", "100+", "持续更新")
     else:
+        # 读取数据
         content = uploaded_file.read()
         df = None
         for enc in ['utf-8', 'gbk', 'utf-16']:
@@ -148,8 +167,10 @@ def main():
             df[msg_col] = df[msg_col].astype(str)
             if user_query:
                 perform_diagnosis(df, msg_col, user_query)
+            else:
+                st.info("👈 文件已载入。请在左侧输入现象（如 'Unhandled'）开始分析。")
         else:
-            st.error("文件读取失败。")
+            st.error("文件格式不兼容，请确保是标准的罗氏日志文件。")
 
 if __name__ == "__main__":
-    main()
+
