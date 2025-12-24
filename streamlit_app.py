@@ -3,10 +3,86 @@ import pandas as pd
 import re
 import io
 
-# 1. 页面配置
-st.set_page_config(page_title="LC PRO 智能故障助手", page_icon="🧪", layout="wide")
+# --- 1. 页面配置 (浏览器标签及布局) ---
+st.set_page_config(
+    page_title="LC PRO 智能故障助手", 
+    page_icon="🔬", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- 2. 增强型映射表 (确保关键词到代码的桥梁坚固) ---
+# --- 2. 自定义 CSS 美化界面 ---
+st.markdown("""
+    <style>
+    /* 主背景颜色 */
+    .main {
+        background-color: #f8f9fa;
+    }
+    /* 侧边栏标题样式 */
+    .sidebar .sidebar-content {
+        background-color: #ffffff;
+    }
+    /* 欢迎语卡片样式 */
+    .welcome-card {
+        background-color: #ffffff;
+        padding: 25px;
+        border-radius: 15px;
+        border-left: 5px solid #007bff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 25px;
+    }
+    .welcome-title {
+        color: #007bff;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 3. 侧边栏：Logo 与 控制面板 ---
+with st.sidebar:
+    # --- [Logo 展示功能] ---
+    # 如果你有 Logo 文件的 URL，替换下方的 URL。
+    # 如果是本地文件，请先上传到 GitHub 仓库，然后使用相对路径，如 "logo.png"
+    logo_url = "https://www.roche.com/dam/jcr:82708304-4543-4475-816d-3e6f966f363c/roche-logo.png" 
+    try:
+        st.image(logo_url, width=150)
+    except:
+        st.write("🏢 **[请在代码中配置您的 Logo]**")
+    
+    st.title("LC PRO 智能故障助手")
+    st.write("---")
+    st.header("⚙️ 诊断控制台")
+    uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
+    user_query = st.text_input("2. 输入症状或警报 ID", placeholder="如: pressing error")
+    st.info("💡 提示：输入具体错误码（如 0x0189）可获得最精准的解析。")
+
+# --- 4. 主界面：美化的欢迎语 ---
+if not uploaded_file:
+    st.markdown(f"""
+        <div class="welcome-card">
+            <div class="welcome-title">您好！欢迎使用 LC PRO 智能故障助手 👋</div>
+            <p style="color: #666; font-size: 16px; margin-top: 10px;">
+                本系统由<b>技术部</b>驱动，专为 LC PRO 系列仪器量身打造。<br>
+                通过智能算法，我们能从海量日志中秒级锁定故障根因，助您快速恢复实验。
+            </p>
+            <hr>
+            <p><b>开始诊断：</b></p>
+            <ol>
+                <li>从仪器端导出 <b>system-logs.csv</b> 文件。</li>
+                <li>通过左侧面板上传文件。</li>
+                <li>在搜索框描述您遇到的现象或直接输入屏幕显示的报错代码。</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # 增加一个功能介绍的布局
+    col1, col2, col3 = st.columns(3)
+    col1.metric("支持代码", "100+", "持续更新中")
+    col2.metric("分析速度", "< 1秒", "即时响应")
+    col3.metric("诊断深度", "三级根因", "电气/机械/耗材")
+
+# --- 5. 增强型映射表 (确保关键词到代码的桥梁坚固) ---
 SYMPTOM_TO_CODE = {
     "pressing error": "0x0229",
     "9429.1.0.0.0.0.16": "0x0229",
@@ -16,7 +92,7 @@ SYMPTOM_TO_CODE = {
     "未处理硬件故障": "0x0189"
 }
 
-# --- 3. 核心专家知识库 ---
+# --- 6. 核心专家知识库 ---
 FAULT_LIBRARY = {
     "0x0229": {
         "name": "加热盖压紧错误 (Pressing Error)",
@@ -43,7 +119,7 @@ FAULT_LIBRARY = {
     }
 }
 
-# --- 4. 深度诊断引擎 ---
+# --- 7. 深度诊断引擎 ---
 def perform_diagnosis(df, msg_col, user_input):
     st.markdown(f"### 🔍 诊断报告回溯: “{user_input}”")
     
@@ -114,7 +190,7 @@ def perform_diagnosis(df, msg_col, user_input):
         st.warning("检测到相关日志，但未能匹配到专家库中的具体解析。")
         st.code(raw_msg)
 
-# --- 5. 主界面渲染 ---
+# --- 8. 主界面渲染 ---
 def main():
     st.title("🔬 LC PRO 智能故障助手")
     st.sidebar.header("⚙️ 诊断控制台")
@@ -141,4 +217,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
