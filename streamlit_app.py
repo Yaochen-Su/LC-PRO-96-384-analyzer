@@ -123,7 +123,7 @@ def main():
     # 侧边栏布局
     with st.sidebar:
         # [Logo] 可以在此处更换 URL
-        st.image("logo.png", width=120)
+        st.image("logo.png", width=200)
         st.title("LC PRO 智能故障助手")
         st.write("---")
         uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
@@ -174,4 +174,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
