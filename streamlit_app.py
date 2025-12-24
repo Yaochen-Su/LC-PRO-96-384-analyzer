@@ -3,94 +3,92 @@ import pandas as pd
 import re
 import io
 
-# 页面配置
-st.set_page_config(page_title="罗氏 LC PRO 96 智能诊断", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="LC PRO 96 智能诊断专家", page_icon="🔬", layout="wide")
 
-# 自定义样式
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    .stAlert { border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🧬 Roche LightCycler PRO 96 智能日志分析系统")
-st.info("本工具用于快速定位 LC PRO 96 运行样本时的 'Unhandled hardware failure' 等硬件故障。")
-
-# 核心专家库（基于您提供的日志样本）
-KNOWLEDGE_BASE = {
-    "0x0189": {
-        "title": "检测单元同步故障 (Optical Sync)",
-        "desc": "LED控制板未收到相机的同步信号。通常是内部触发线松动、电磁干扰或相机/LED板卡损坏。",
-        "action": "1. 检查相机与LEDCntrl板连接线；2. 检查屏蔽接地；3. 运行光学专项自检。"
-    },
-    "0x0229": {
-        "title": "加热盖压紧错误 (Pressing Error)",
-        "desc": "加热盖电机在下压时步数超限，无法到达预设压力或位置。",
-        "action": "1. 检查PCR耗材高度是否标准；2. 检查压紧丝杆润滑；3. 校准盖压力。"
-    },
-    "553": {
-        "title": "硬件紧急报告 (Emergency)",
-        "desc": "底层模块触发了紧急停止信号。",
-        "action": "请结合具体的 ErrorCode 进行排查。"
-    }
+# --- 专家知识图谱 ---
+SYMPTOM_MAP = {
+    "运行中途停止/崩溃": ["ErrorCode", "Emergency", "Abort", "Failure"],
+    "荧光信号异常/过低": ["LEDIntensity", "Gain", "ExposureTime", "CaptureImage"],
+    "温度波动/报错": ["UTEC", "TempSensor", "Heatsink", "Peltier"],
+    "加热盖打不开/报错": ["PressCover", "Motor", "Sync_Err", "Lid"]
 }
 
-uploaded_file = st.file_uploader("📤 请上传导出的 system-logs.csv 文件", type=["csv", "log"])
+KNOWLEDGE_BASE = {
+    "0x0189": {"title": "检测单元同步失效", "cause": "相机未给LED控制板发送触发信号", "suggest": "检查内部连接线或更换相机模块"},
+    "0x0229": {"title": "加热盖压紧错误", "cause": "压紧电机步数溢出", "suggest": "检查耗材高度或润滑丝杆"},
+    "0x0201": {"title": "板卡通讯中断", "cause": "主控板与模块连接丢失", "suggest": "检查直流供电电压是否稳定"},
+}
+
+st.title("🔬 LC PRO 96 智能故障根因分析系统")
+
+# --- 侧边栏：故障描述输入 ---
+st.sidebar.header("🛠️ 故障现象描述")
+user_symptom = st.sidebar.selectbox(
+    "请选择或输入具体问题：",
+    ["请选择...", "运行中途停止/崩溃", "荧光信号异常/过低", "温度波动/报错", "加热盖打不开/报错", "其他 (搜索关键词)"]
+)
+custom_keyword = st.sidebar.text_input("或输入自定义搜索关键词（如：Motor）")
+
+uploaded_file = st.file_uploader("📤 上传 system-logs.csv 文件", type=["csv", "log"])
 
 if uploaded_file:
-    # 自动识别编码并读取
     df = None
     content = uploaded_file.read()
-    for enc in ['utf-8', 'gbk', 'utf-16', 'gb18030']:
+    # 自动识别编码
+    for enc in ['utf-8', 'gbk', 'gb18030']:
         try:
             df = pd.read_csv(io.BytesIO(content), sep='\t', header=None, encoding=enc, encoding_errors='replace')
-            st.caption(f"✅ 文件解析成功 (编码: {enc})")
             break
-        except:
-            continue
+        except: continue
 
     if df is not None:
-        # 处理列名
-        msg_col_idx = df.shape[1] - 1
-        df[msg_col_idx] = df[msg_col_idx].astype(str)
+        # 数据列标准化
+        msg_col = df.shape[1] - 1
+        df[msg_col] = df[msg_col].astype(str)
         
-        # 提取关键错误
-        error_df = df[df[msg_col_idx].str.contains('ErrorCode|Hardware emergency|unhandled hardware failure|Alert', case=False)]
+        # --- 智能分析逻辑 ---
+        st.subheader("📋 诊断报告")
+        
+        target_keywords = []
+        if user_symptom != "请选择...":
+            target_keywords = SYMPTOM_MAP.get(user_symptom, [])
+        if custom_keyword:
+            target_keywords.append(custom_keyword)
 
-        if not error_df.empty:
-            st.error(f"🚨 在日志中检测到 {len(error_df)} 处异常记录")
+        if target_keywords:
+            # 在日志中根据现象关键词进行筛选
+            pattern = '|'.join(target_keywords)
+            matched_df = df[df[msg_col].str.contains(pattern, case=False, na=False)]
             
-            for idx, row in error_df.iterrows():
-                msg = row[msg_col_idx]
-                # 匹配代码
-                code_match = re.search(r'ErrorCode:\s*(0x[0-9a-fA-F]+)|ErrorNo\s*(\d+)|Scenario\":\"(.*?)\"', msg)
+            if not matched_df.empty:
+                st.write(f"🔍 根据您的描述，在日志中找到 **{len(matched_df)}** 条相关线索：")
                 
-                # 尝试获取识别码
-                code = "Unknown"
-                if code_match:
-                    code = code_match.group(1) or code_match.group(2) or code_match.group(3)
-
-                with st.expander(f"时间点: {row[1] if len(row)>1 else '未知'} | 错误信息摘要", expanded=True):
-                    c1, c2 = st.columns([1, 2])
+                # 提取最高频出现的错误码
+                all_text = " ".join(matched_df[msg_col].tolist())
+                found_codes = re.findall(r'0x[0-9a-fA-F]+', all_text)
+                
+                if found_codes:
+                    most_common_code = max(set(found_codes), key=found_codes.count)
+                    st.success(f"### 🚩 疑似核心根因：{most_common_code}")
                     
-                    with c1:
-                        st.warning(f"标识码: {code}")
-                        # 查找 PCR 阶段
-                        context = df.iloc[max(0, idx-150):idx]
-                        proc = context[context[msg_col_idx].str.contains('ProcTypeId_', na=False)].tail(1)
-                        if not proc.empty:
-                            stage = re.search(r'ProcTypeId_(\w+)', proc[msg_col_idx].values[0])
-                            st.write(f"📍 **发生阶段:** {stage.group(1) if stage else '未知'}")
-                    
-                    with c2:
-                        know = KNOWLEDGE_BASE.get(code, {"title": "未定义的硬件错误", "desc": "请查看下方原始日志，建议联系罗氏后台。", "action": "查阅维修手册。"})
-                        st.markdown(f"### {know['title']}")
-                        st.write(f"**分析:** {know['desc']}")
-                        st.success(f"**建议:** {know['action']}")
-                    
-                    st.text("原始日志:")
-                    st.code(msg)
+                    if most_common_code in KNOWLEDGE_BASE:
+                        kb = KNOWLEDGE_BASE[most_common_code]
+                        c1, c2 = st.columns(2)
+                        c1.metric("故障模块", kb['title'])
+                        c2.info(f"**可能原因：** {kb['cause']}\n\n**处理建议：** {kb['suggest']}")
+                
+                # 时间轴展示
+                st.write("---")
+                st.write("🕒 **故障前后的关键事件链：**")
+                display_df = matched_df.tail(10)[[1, 4, msg_col]] # 取最后10条关键记录
+                display_df.columns = ['时间', '模块', '详细日志']
+                st.table(display_df)
+            else:
+                st.warning("未在日志中找到与该现象直接相关的关键词。")
         else:
-            st.balloons()
-            st.success("🎉 该日志中未发现明显硬件故障，请检查软件设置或人为操作。")
+            st.info("请在左侧选择或输入故障现象，系统将开始根因回溯。")
+
+        # 原始错误统计（保留之前的功能）
+        with st.sidebar.expander("📊 原始统计"):
+            hw_errors = df[df[msg_col].str.contains('ErrorCode|Hardware failure', case=False)].shape[0]
+            st.write(f"硬件错误总数: {hw_errors}")
