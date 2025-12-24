@@ -173,3 +173,4 @@ def main():
             st.error("文件格式不兼容，请确保是标准的罗氏日志文件。")
 
 if __name__ == "__main__":
+main()
