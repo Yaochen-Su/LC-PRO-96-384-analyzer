@@ -19,7 +19,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 2. 专家知识库 (核心数据结构) ---
-# 定义 0x 代码及其关联的所有标识符
 FAULT_LIBRARY = {
     "0x0229": {
         "name": "加热盖压紧错误 (Pressing Error)",
@@ -60,23 +59,50 @@ FAULT_LIBRARY = {
 def extract_params(msg):
     return re.findall(r'(\w+):\s*([\d\.-x]+)', msg)
 
-def perform_diagnosis(df, msg_col, user_input):
-    st.markdown(f"### 🔍 诊断报告: “{user_input}”")
-    
+def show_knowledge_base_info(user_input):
+    """【新功能】无文件时的数据库查询模式"""
+    st.markdown(f"### 📖 知识库查询结果: “{user_input}”")
     input_lower = user_input.lower().strip()
     target_info = None
     target_code = None
 
-    # 第一步：基于知识库的“强关联识别”
-    # 只要用户输入的词在某个故障的 keywords 列表里，就直接锁定该故障
+    for code, info in FAULT_LIBRARY.items():
+        if any(kw in input_lower for kw in info['keywords']):
+            target_info = info
+            target_code = code
+            break
+    
+    if target_info:
+        st.error(f"### 诊断结论：{target_info['name']}")
+        tab1, tab2, tab3 = st.tabs(["📑 故障深度解析", "🧐 可能的原因分析", "🛠️ 建议维修步骤"])
+        with tab1:
+            st.write(f"**关联代码/ID:** `{target_code}` / `{target_info.get('alert_id', 'N/A')}`")
+            st.write(f"**定义:** {target_info['content']}")
+            st.info("ℹ️ 当前处于【知识库直查模式】。如需查看日志中报错时的实时参数快照，请先在左侧上传日志文件。")
+        with tab2:
+            for cat, detail in target_info['causes'].items():
+                st.markdown(f"**{cat}**：{detail}")
+        with tab3:
+            for i, step in enumerate(target_info['fix_steps']):
+                st.success(f"{i+1}. {step}")
+    else:
+        st.warning(f"专家库中暂未找到与 '{user_input}' 直接相关的定义。建议尝试输入代码（如 0x0189）或 Alert ID。")
+
+def perform_diagnosis(df, msg_col, user_input):
+    """有文件时的深度诊断模式"""
+    st.markdown(f"### 🔍 深度日志诊断: “{user_input}”")
+    input_lower = user_input.lower().strip()
+    target_info = None
+    target_code = None
+
+    # 第一步：强关联识别
     for code, info in FAULT_LIBRARY.items():
         if any(kw in input_lower for kw in info['keywords']):
             target_info = info
             target_code = code
             break
 
-    # 第二步：在日志中搜索证据
-    # 搜索词包括用户输入的原词、关联的代码和关联的 Alert ID
+    # 第二步：搜索日志
     search_terms = [input_lower]
     if target_info:
         search_terms.extend([target_code.lower(), target_info['alert_id'].lower()])
@@ -85,14 +111,15 @@ def perform_diagnosis(df, msg_col, user_input):
     matches = df[df[msg_col].str.contains(pattern, case=False, na=False)]
 
     if matches.empty:
-        st.warning(f"⚠️ 在日志中未找到与 '{user_input}' 相关的记录。")
+        st.warning(f"⚠️ 在日志中未找到与 '{user_input}' 相关的匹配记录。显示知识库基础解析：")
+        if target_info:
+             # 如果日志没搜到，但关键词命中了库，依然展示库信息
+             show_knowledge_base_info(user_input)
         return
 
-    # 锁定最后一条记录作为展示背景
     latest_event = matches.iloc[-1]
     raw_msg = str(latest_event[msg_col])
     
-    # 如果通过输入没锁死故障，则尝试从日志行里提取代码再查一遍
     if not target_info:
         hex_match = re.search(r'0x[0-9a-fA-F]+', raw_msg)
         if hex_match:
@@ -100,15 +127,13 @@ def perform_diagnosis(df, msg_col, user_input):
             target_info = FAULT_LIBRARY.get(code)
             target_code = code
 
-    # 第三步：渲染结果
+    # 第三步：渲染
     if target_info:
         st.error(f"### 诊断结论：{target_info['name']}")
-        
         tab1, tab2, tab3 = st.tabs(["📑 故障深度解析", "🧐 可能的原因分析", "🛠️ 建议维修步骤"])
         with tab1:
             st.write(f"**关联代码/ID:** `{target_code}` / `{target_info.get('alert_id', 'N/A')}`")
             st.write(f"**定义:** {target_info['content']}")
-            # 参数显示
             params = extract_params(raw_msg)
             if params:
                 st.write("**实时参数快照：**")
@@ -121,7 +146,6 @@ def perform_diagnosis(df, msg_col, user_input):
         with tab3:
             for i, step in enumerate(target_info['fix_steps']):
                 st.success(f"{i+1}. {step}")
-        
         with st.expander("查看原始日志条目"):
             st.code(raw_msg)
     else:
@@ -130,40 +154,42 @@ def perform_diagnosis(df, msg_col, user_input):
 
 # --- 4. 界面渲染 ---
 def main():
-    # 侧边栏布局
     with st.sidebar:
-        # [Logo] 可以在此处更换 URL
-        st.image("logo.png", width=200)
+        # st.image("logo.png", width=200) # 请确保 logo 文件存在，否则可注释掉
         st.title("LC PRO 智能故障助手")
         st.write("---")
-        uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
+        uploaded_file = st.sidebar.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
         user_query = st.text_input("2. 输入症状/警报ID/代码", placeholder="如: pressing error")
         st.write("---")
-        st.info("📊 支持 Alert ID 自动关联硬件错误码。")
+        st.info("📊 模式说明：\n- **未上传文件**：查询专家知识库描述。\n- **已上传文件**：基于日志执行深度诊断。")
 
-    # 主界面内容
+    # 主界面逻辑
     if not uploaded_file:
-        st.markdown("""
-            <div class="welcome-card">
-                <div class="welcome-title">您好！欢迎使用 LC PRO 智能故障助手 👋</div>
-                <p style="color: #666; font-size: 16px; margin-top: 10px;">
-                    本工具集成了 <b>回溯分析、因果推导、参数提取</b> 等功能，专门用于快速定位 Roche LC PRO 仪器的硬件故障。
-                </p>
-                <hr>
-                <p><b>使用三部曲：</b></p>
-                <ol>
-                    <li>在左侧上传 <b>system-logs.csv</b> 文件。</li>
-                    <li>在搜索框输入遇到的问题（如：<b>pressing error</b>）。</li>
-                    <li>查看系统生成的 <b>深度诊断报告</b>。</li>
-                </ol>
-            </div>
-            """, unsafe_allow_html=True)
-        c1, c2, c3 = st.columns(3)
-        c1.metric("解析深度", "三级根因", "电气/机械/耗材")
-        c2.metric("响应速度", "< 1秒", "即时诊断")
-        c3.metric("支持代码", "100+", "持续更新")
+        if user_query:
+            # 执行纯库查询功能
+            show_knowledge_base_info(user_query)
+        else:
+            # 显示原始欢迎界面
+            st.markdown("""
+                <div class="welcome-card">
+                    <div class="welcome-title">您好！欢迎使用 LC PRO 智能故障助手 👋</div>
+                    <p style="color: #666; font-size: 16px; margin-top: 10px;">
+                        本工具支持 <b>离线知识库查阅</b> 与 <b>在线日志深度诊断</b>。您可以直接搜索故障，或上传日志获取精准分析。
+                    </p>
+                    <hr>
+                    <p><b>操作说明：</b></p>
+                    <ul>
+                        <li><b>快速查阅</b>：直接在左侧搜索框输入错误代码（如 0x0189）查看定义与建议。</li>
+                        <li><b>深度诊断</b>：上传 <b>system-logs.csv</b> 后搜索，系统将提取报错时的硬件实时参数。</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("解析深度", "三级根因", "电气/机械/耗材")
+            c2.metric("响应速度", "< 1秒", "即时诊断")
+            c3.metric("支持代码", "100+", "持续更新")
     else:
-        # 读取数据
+        # 有文件时的逻辑
         content = uploaded_file.read()
         df = None
         for enc in ['utf-8', 'gbk', 'utf-16']:
@@ -178,14 +204,9 @@ def main():
             if user_query:
                 perform_diagnosis(df, msg_col, user_query)
             else:
-                st.info("👈 文件已载入。请在左侧输入现象（如 'Unhandled'）开始分析。")
+                st.info("👈 文件已载入。请在左侧输入现象开始深度分析。")
         else:
             st.error("文件格式不兼容，请确保是标准的罗氏日志文件。")
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
