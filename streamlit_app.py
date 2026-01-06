@@ -12,7 +12,7 @@ st.markdown("""
     .main { background-color: #f8f9fa; }
     .welcome-card {
         background-color: #ffffff; padding: 25px; border-radius: 15px;
-        border-left: 5px solid #007bff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px;
+        border-left: 5px solid #007bff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 25px;
     }
     .welcome-title { color: #007bff; font-size: 28px; font-weight: bold; }
     </style>
@@ -38,7 +38,7 @@ FAULT_LIBRARY = {
         "keywords": ["unhandled hardware failure", "未处理硬件故障", "9429.1.0.0.0.0.22", "0x0189", "sync"],
         "content": "对应 Unhandled Failure。相机快门信号与LED灯闪烁不同步。",
         "causes": {
-            "🔌 链路故障": "检测头内部相机同步线（黑色细线）松动或折断。",
+            "🔌 链路故障": "检测头内部相机同步线（黑色细线）松动或断裂。",
             "⚡ 电磁干扰": "Peltier大电流工作产生电磁脉冲干扰了信号。"
         },
         "fix_steps": ["重新插拔同步线", "排查拖链线束磨损", "执行光学专项自检"]
@@ -46,34 +46,34 @@ FAULT_LIBRARY = {
     "0x0301": {
         "name": "加热盖错误 (Heated lid error)",
         "alert_id": "9429.1.0.0.0.0.20",
-        "keywords": ["Heated lid error", "加热盖错误", "9429.1.0.0.0.0.20", "0x0301", "0x00100601"],
+        "keywords": ["heated lid error", "加热盖错误", "9429.1.0.0.0.0.20", "0x0301", "0x00100601"],
         "content": "对应 Heated lid error。加热盖温度传感器异常或加热效率不足（超时）。",
         "causes": {
-            "📡 温度传感器故障": "加热盖内部的某个热敏电阻读数异常或损坏，导致系统无法准确监控升温过程。",
-            "⚡ 加热元件损坏": "加热膜或相关的供电线路可能接触不良或老化，导致升温速度无法达到系统预设的阈值，从而触发保护性关断。",
-            "🔌 连接电缆问题: "连接主机与加热盖之间的排线可能存在松动或内部断裂。"
+            "📡 温度传感器故障": "加热盖内部热敏电阻读数异常或损坏。",
+            "⚡ 加热元件损坏": "加热膜或供电线路接触不良或老化。",
+            "🔌 连接电缆问题": "主机与加热盖之间的排线可能松动或断裂。"
         },
-        "fix_steps": ["尝试完全关闭仪器电源并拔掉电源线，等待几分钟后重新启动，看是否能通过自检", "检查加热盖的连接电缆是否牢固", "检查加热盖的传感器和加热回路"]
+        "fix_steps": ["重启仪器并检查自检情况", "检查加热盖连接电缆是否牢固", "检查加热传感器和回路"]
     },
-    "0x0xxx": {
+    "0x0001": { # 更改了重复的键名
         "name": "加载的板型无效 (Invalid plate type loaded)",
         "alert_id": "9429.1.0.0.0.0.1",
-        "keywords": ["Invalid plate type loaded", "加载的板型无效", "9429.1.0.0.0.0.1", "0x0xxx", "Invalid plate"],
-        "content": "对应 Invalid plate type loaded。加载的板型无效。",
+        "keywords": ["invalid plate type loaded", "加载的板型无效", "9429.1.0.0.0.0.1", "0x0xxx", "invalid plate"],
+        "content": "加载的板件类型不适合当前模块格式。",
         "causes": {
-            "🧪 耗材问题": "加载到仪器的板件不适合模块格式。",
+            "🧪 耗材问题": "实验板件规格与系统设置不匹配。"
         },
-        "fix_steps": ["卸载板件", "更换板件后重新运行"]
+        "fix_steps": ["卸载板件", "更换符合规格的板件后重新运行"]
     },
-    "0x0xxx": {
+    "0x0009": { # 更改了重复的键名
         "name": "未找到加热盖对齐标记",
         "alert_id": "9429.1.0.0.0.0.9",
-        "keywords": ["未找到加热盖对齐标记", "9429.1.0.0.0.0.9", "0x0xxx"],
-        "content": "由于加热盖的盖子标记不符合定义的规格，初始化或运行执行失败。",
+        "keywords": ["未找到加热盖对齐标记", "9429.1.0.0.0.0.9", "marker"],
+        "content": "加热盖标记不符合规格，导致初始化或运行执行失败。",
         "causes": {
-            "⚙️ 机械故障": "加热盖的盖子标记不符合定义的规格"
+            "⚙️ 机械故障": "标记器脏污或损坏导致无法识别对齐点。"
         },
-        "fix_steps": ["步骤1：清洁加热盖的盖标记器", "步骤2：更换加热盖"]
+        "fix_steps": ["清洁加热盖的标记器", "若清洁无效则更换加热盖"]
     }
 }
 
@@ -82,14 +82,15 @@ def extract_params(msg):
     return re.findall(r'(\w+):\s*([\d\.-x]+)', msg)
 
 def show_knowledge_base_info(user_input):
-    """【新功能】无文件时的数据库查询模式"""
+    """【功能】无文件时的数据库查询模式"""
     st.markdown(f"### 📖 知识库查询结果: “{user_input}”")
     input_lower = user_input.lower().strip()
     target_info = None
     target_code = None
 
     for code, info in FAULT_LIBRARY.items():
-        if any(kw in input_lower for kw in info['keywords']):
+        # 匹配逻辑：检查关键词是否出现在输入中，或输入是否包含在关键词中
+        if any(kw.lower() in input_lower or input_lower in kw.lower() for kw in info['keywords']):
             target_info = info
             target_code = code
             break
@@ -100,7 +101,7 @@ def show_knowledge_base_info(user_input):
         with tab1:
             st.write(f"**关联代码/ID:** `{target_code}` / `{target_info.get('alert_id', 'N/A')}`")
             st.write(f"**定义:** {target_info['content']}")
-            st.info("ℹ️ 当前处于【知识库直查模式】。如需查看日志中报错时的实时参数快照，请先在左侧上传日志文件。")
+            st.info("ℹ️ 当前处于【知识库直查模式】。如需查看日志中的实时参数，请先上传日志文件。")
         with tab2:
             for cat, detail in target_info['causes'].items():
                 st.markdown(f"**{cat}**：{detail}")
@@ -108,7 +109,7 @@ def show_knowledge_base_info(user_input):
             for i, step in enumerate(target_info['fix_steps']):
                 st.success(f"{i+1}. {step}")
     else:
-        st.warning(f"专家库中暂未找到与 '{user_input}' 直接相关的定义。建议尝试输入代码（如 0x0189）或 Alert ID。")
+        st.warning(f"专家库中未找到与 '{user_input}' 相关的直接定义。")
 
 def perform_diagnosis(df, msg_col, user_input):
     """有文件时的深度诊断模式"""
@@ -117,14 +118,12 @@ def perform_diagnosis(df, msg_col, user_input):
     target_info = None
     target_code = None
 
-    # 第一步：强关联识别
     for code, info in FAULT_LIBRARY.items():
-        if any(kw in input_lower for kw in info['keywords']):
+        if any(kw.lower() in input_lower for kw in info['keywords']):
             target_info = info
             target_code = code
             break
 
-    # 第二步：搜索日志
     search_terms = [input_lower]
     if target_info:
         search_terms.extend([target_code.lower(), target_info['alert_id'].lower()])
@@ -133,9 +132,8 @@ def perform_diagnosis(df, msg_col, user_input):
     matches = df[df[msg_col].str.contains(pattern, case=False, na=False)]
 
     if matches.empty:
-        st.warning(f"⚠️ 在日志中未找到与 '{user_input}' 相关的匹配记录。显示知识库基础解析：")
+        st.warning(f"⚠️ 日志中未找到匹配记录。显示基础库解析：")
         if target_info:
-             # 如果日志没搜到，但关键词命中了库，依然展示库信息
              show_knowledge_base_info(user_input)
         return
 
@@ -149,7 +147,6 @@ def perform_diagnosis(df, msg_col, user_input):
             target_info = FAULT_LIBRARY.get(code)
             target_code = code
 
-    # 第三步：渲染
     if target_info:
         st.error(f"### 诊断结论：{target_info['name']}")
         tab1, tab2, tab3 = st.tabs(["📑 故障深度解析", "🧐 可能的原因分析", "🛠️ 建议维修步骤"])
@@ -171,47 +168,41 @@ def perform_diagnosis(df, msg_col, user_input):
         with st.expander("查看原始日志条目"):
             st.code(raw_msg)
     else:
-        st.warning(f"检测到日志相关性，但专家库暂未收录具体解析。")
+        st.warning(f"专家库暂未收录具体解析。")
         st.code(raw_msg)
 
 # --- 4. 界面渲染 ---
 def main():
     with st.sidebar:
-        # st.image("logo.png", width=200) # 请确保 logo 文件存在，否则可注释掉
         st.title("LC PRO 智能故障助手")
         st.write("---")
-        uploaded_file = st.sidebar.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
+        uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
         user_query = st.text_input("2. 输入症状/警报ID/代码", placeholder="如: pressing error")
         st.write("---")
-        st.info("📊 模式说明：\n- **未上传文件**：查询专家知识库描述。\n- **已上传文件**：基于日志执行深度诊断。")
+        st.info("📊 模式：\n- **无文件**：查阅知识库。\n- **有文件**：执行深度诊断。")
 
-    # 主界面逻辑
     if not uploaded_file:
         if user_query:
-            # 执行纯库查询功能
             show_knowledge_base_info(user_query)
         else:
-            # 显示原始欢迎界面
             st.markdown("""
                 <div class="welcome-card">
                     <div class="welcome-title">您好！欢迎使用 LC PRO 智能故障助手 👋</div>
                     <p style="color: #666; font-size: 16px; margin-top: 10px;">
-                        本工具支持 <b>离线知识库查阅</b> 与 <b>在线日志深度诊断</b>。您可以直接搜索故障，或上传日志获取精准分析。
+                        支持 <b>离线查阅</b> 与 <b>在线诊断</b>。
                     </p>
                     <hr>
-                    <p><b>操作说明：</b></p>
                     <ul>
-                        <li><b>快速查阅</b>：直接在左侧搜索框输入错误代码（如 0x0189或9429.1.0.0.0.0.1）查看定义与建议。</li>
-                        <li><b>深度诊断</b>：上传 <b>system-logs.csv</b> 后搜索，系统将提取报错时的硬件实时参数。</li>
+                        <li><b>快速查阅</b>：直接在左侧输入错误代码或 ID。</li>
+                        <li><b>深度诊断</b>：上传 <b>system-logs.csv</b> 后搜索。</li>
                     </ul>
                 </div>
                 """, unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
-            c1.metric("解析深度", "三级根因", "电气/机械/耗材")
-            c2.metric("响应速度", "< 1秒", "即时诊断")
-            c3.metric("支持代码", "100+", "持续更新")
+            c1.metric("解析深度", "三级根因")
+            c2.metric("响应速度", "< 1秒")
+            c3.metric("支持代码", "100+")
     else:
-        # 有文件时的逻辑
         content = uploaded_file.read()
         df = None
         for enc in ['utf-8', 'gbk', 'utf-16']:
@@ -226,11 +217,7 @@ def main():
             if user_query:
                 perform_diagnosis(df, msg_col, user_query)
             else:
-                st.info("👈 文件已载入。请在左侧输入现象开始深度分析。")
-        else:
-            st.error("文件格式不兼容，请确保是标准的罗氏日志文件。")
+                st.info("👈 文件已载入。请输入现象开始分析。")
 
 if __name__ == "__main__":
     main()
-
-
