@@ -171,7 +171,10 @@ def main():
                     </ul>
                 </div>
                 """, unsafe_allow_html=True)
-            st.columns(3)[0].metric("响应速度", "< 1秒")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("解析深度", "三级根因")
+            c2.metric("响应速度", "< 1秒")
+            c3.metric("支持代码", "100+")
     else:
         # 已上传文件逻辑
         content = uploaded_file.read()
@@ -190,3 +193,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
