@@ -55,41 +55,41 @@ FAULT_LIBRARY = {
         },
         "fix_steps": ["重启仪器并检查自检情况", "检查加热盖连接电缆是否牢固", "检查加热传感器和回路"]
     },
-    "0x0001": { # 更改了重复的键名
+    "0x0001": {
         "name": "加载的板型无效 (Invalid plate type loaded)",
         "alert_id": "9429.1.0.0.0.0.1",
         "keywords": ["invalid plate type loaded", "加载的板型无效", "9429.1.0.0.0.0.1", "0x0xxx", "invalid plate"],
         "content": "加载的板件类型不适合当前模块格式。",
-        "causes": {
-            "🧪 耗材问题": "实验板件规格与系统设置不匹配。"
-        },
+        "causes": { "🧪 耗材问题": "实验板件规格与系统设置不匹配。" },
         "fix_steps": ["卸载板件", "更换符合规格的板件后重新运行"]
     },
-    "0x0009": { # 更改了重复的键名
+    "0x0009": {
         "name": "未找到加热盖对齐标记",
         "alert_id": "9429.1.0.0.0.0.9",
         "keywords": ["未找到加热盖对齐标记", "9429.1.0.0.0.0.9", "marker"],
         "content": "加热盖标记不符合规格，导致初始化或运行执行失败。",
-        "causes": {
-            "⚙️ 机械故障": "标记器脏污或损坏导致无法识别对齐点。"
-        },
+        "causes": { "⚙️ 机械故障": "标记器脏污或损坏导致无法识别对齐点。" },
         "fix_steps": ["清洁加热盖的标记器", "若清洁无效则更换加热盖"]
     }
 }
 
-# --- 3. 核心工具函数 ---
+# --- 3. 核心功能函数 ---
+
+def reset_search():
+    """回调函数：清空搜索框并返回首页"""
+    st.session_state.user_query = ""
+
 def extract_params(msg):
     return re.findall(r'(\w+):\s*([\d\.-x]+)', msg)
 
 def show_knowledge_base_info(user_input):
-    """【功能】无文件时的数据库查询模式"""
+    """【离线查阅模式】"""
     st.markdown(f"### 📖 知识库查询结果: “{user_input}”")
     input_lower = user_input.lower().strip()
     target_info = None
     target_code = None
 
     for code, info in FAULT_LIBRARY.items():
-        # 匹配逻辑：检查关键词是否出现在输入中，或输入是否包含在关键词中
         if any(kw.lower() in input_lower or input_lower in kw.lower() for kw in info['keywords']):
             target_info = info
             target_code = code
@@ -101,18 +101,23 @@ def show_knowledge_base_info(user_input):
         with tab1:
             st.write(f"**关联代码/ID:** `{target_code}` / `{target_info.get('alert_id', 'N/A')}`")
             st.write(f"**定义:** {target_info['content']}")
-            st.info("ℹ️ 当前处于【知识库直查模式】。如需查看日志中的实时参数，请先上传日志文件。")
+            st.info("ℹ️ 当前处于知识库直查模式。如需查看实时参数，请先上传日志。")
         with tab2:
             for cat, detail in target_info['causes'].items():
                 st.markdown(f"**{cat}**：{detail}")
         with tab3:
             for i, step in enumerate(target_info['fix_steps']):
                 st.success(f"{i+1}. {step}")
+        
+        # --- [新增] 返回按钮 ---
+        st.button("⬅️ 返回首页", on_click=reset_search)
+        
     else:
-        st.warning(f"专家库中未找到与 '{user_input}' 相关的直接定义。")
+        st.warning(f"专家库中未找到与 '{user_input}' 相关的定义。")
+        st.button("⬅️ 返回重试", on_click=reset_search)
 
 def perform_diagnosis(df, msg_col, user_input):
-    """有文件时的深度诊断模式"""
+    """【深度日志诊断模式】"""
     st.markdown(f"### 🔍 深度日志诊断: “{user_input}”")
     input_lower = user_input.lower().strip()
     target_info = None
@@ -135,6 +140,8 @@ def perform_diagnosis(df, msg_col, user_input):
         st.warning(f"⚠️ 日志中未找到匹配记录。显示基础库解析：")
         if target_info:
              show_knowledge_base_info(user_input)
+        else:
+             st.button("⬅️ 返回重试", on_click=reset_search)
         return
 
     latest_event = matches.iloc[-1]
@@ -165,36 +172,52 @@ def perform_diagnosis(df, msg_col, user_input):
         with tab3:
             for i, step in enumerate(target_info['fix_steps']):
                 st.success(f"{i+1}. {step}")
+        
         with st.expander("查看原始日志条目"):
             st.code(raw_msg)
+        
+        # --- [新增] 返回按钮 ---
+        st.button("⬅️ 返回首页", on_click=reset_search)
     else:
         st.warning(f"专家库暂未收录具体解析。")
         st.code(raw_msg)
+        st.button("⬅️ 返回", on_click=reset_search)
 
 # --- 4. 界面渲染 ---
 def main():
+    # 初始化 session_state
+    if 'user_query' not in st.session_state:
+        st.session_state.user_query = ""
+
     with st.sidebar:
         st.title("LC PRO 智能故障助手")
         st.write("---")
         uploaded_file = st.file_uploader("1. 上传 system-logs.csv", type=["csv", "log"])
-        user_query = st.text_input("2. 输入症状/警报ID/代码", placeholder="如: pressing error")
+        
+        # 将输入框绑定到 session_state
+        user_query = st.text_input("2. 输入症状/警报ID/代码", value=st.session_state.user_query, key="user_query_input")
+        # 同步状态
+        st.session_state.user_query = user_query
+        
         st.write("---")
         st.info("📊 模式：\n- **无文件**：查阅知识库。\n- **有文件**：执行深度诊断。")
 
+    # 主界面逻辑
     if not uploaded_file:
-        if user_query:
-            show_knowledge_base_info(user_query)
+        if st.session_state.user_query:
+            show_knowledge_base_info(st.session_state.user_query)
         else:
             st.markdown("""
                 <div class="welcome-card">
                     <div class="welcome-title">您好！欢迎使用 LC PRO 智能故障助手 👋</div>
                     <p style="color: #666; font-size: 16px; margin-top: 10px;">
-                        支持 <b>离线查阅</b> 与 <b>在线诊断</b>。
+                        本工具支持 <b>离线知识库查阅</b> 与 <b>在线日志深度诊断</b>。
                     </p>
                     <hr>
+                    <p><b>操作说明：</b></p>
                     <ul>
-                        <li><b>快速查阅</b>：直接在左侧输入错误代码或 ID。</li>
-                        <li><b>深度诊断</b>：上传 <b>system-logs.csv</b> 后搜索。</li>
+                        <li><b>快速查阅</b>：直接在左侧搜索框输入错误代码（如 0x0189）查看定义与建议。</li>
+                        <li><b>深度诊断</b>：上传 <b>system-logs.csv</b> 后搜索，系统将提取报错时的硬件实时参数。</li>
                     </ul>
                 </div>
                 """, unsafe_allow_html=True)
@@ -203,6 +226,7 @@ def main():
             c2.metric("响应速度", "< 1秒")
             c3.metric("支持代码", "100+")
     else:
+        # 有文件时的逻辑
         content = uploaded_file.read()
         df = None
         for enc in ['utf-8', 'gbk', 'utf-16']:
@@ -214,10 +238,12 @@ def main():
         if df is not None:
             msg_col = df.shape[1] - 1
             df[msg_col] = df[msg_col].astype(str)
-            if user_query:
-                perform_diagnosis(df, msg_col, user_query)
+            if st.session_state.user_query:
+                perform_diagnosis(df, msg_col, st.session_state.user_query)
             else:
                 st.info("👈 文件已载入。请输入现象开始分析。")
+        else:
+            st.error("文件格式不兼容，请确保是标准的罗氏日志文件。")
 
 if __name__ == "__main__":
     main()
